@@ -14,6 +14,10 @@ public class Launch {
         gtBooker.findAppointmentDays();
         gtBooker.findAppointments();
 
+        gtBooker.enterPhoneNumber();
+        gtBooker.acceptTOS();
+        gtBooker.acceptMarketingAndFinish();
+
     }
 
 }

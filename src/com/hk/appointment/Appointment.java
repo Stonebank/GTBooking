@@ -1,5 +1,9 @@
 package com.hk.appointment;
 
+import org.openqa.selenium.By;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.slf4j.Logger;
+
 import java.util.ArrayList;
 
 public class Appointment {
@@ -39,6 +43,26 @@ public class Appointment {
 
     public ArrayList<String> getTime_xpath() {
         return time_xpath;
+    }
+
+    // TODO: REWRITE METHOD
+    public static String findAppointmentTime(Logger logger, String input, ChromeDriver driver, Appointment selected_day, ArrayList<String> time_xpath) {
+        for (String xpath : time_xpath) {
+            var time_element = driver.findElement(By.xpath(selected_day.getDay_xpath())).findElement(By.xpath(xpath));
+            if (input.equalsIgnoreCase(time_element.getText()))
+                return xpath;
+        }
+        logger.error("ERROR! Input was not an available appointment.");
+        return null;
+    }
+
+    public static Appointment findAppointmentDay(Logger logger, String input, ArrayList<Appointment> days) {
+        for (Appointment day : days) {
+            if (input.equalsIgnoreCase(day.getDay()) || input.equalsIgnoreCase(day.getDay() + " " + day.getMonth()) || input.equalsIgnoreCase(day.getDay() + " " + day.getMonth() + " " + day.getYear()))
+                return day;
+        }
+        logger.error("ERROR! " + input + " is not an available appointment day.");
+        return null;
     }
 
 }
