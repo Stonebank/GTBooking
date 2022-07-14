@@ -117,7 +117,7 @@ public class GTBooker {
     public void confirmExtraService() {
 
         appointment_price = driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[3]/div/div[3]/div/div[2]/span/currency")).getText();
-        appointment_time = driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[4]/div/div[3]/div/div[2]/minute")).getText();
+        appointment_length = driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[4]/div/div[3]/div/div[2]/minute")).getText();
 
         var wait_for_confirmation = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[4]/div/div[2]/a")));
         wait_for_confirmation.click();
