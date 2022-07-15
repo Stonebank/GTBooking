@@ -44,6 +44,7 @@ public class GTBooker {
     private boolean has_selected_profile;
 
     public GTBooker() {
+
         this.logger = LoggerFactory.getLogger(GTBooker.class);
 
         var os = System.getProperty("os.name").toLowerCase();
@@ -65,6 +66,7 @@ public class GTBooker {
         logger.info("Initializing arguments for the driver...");
         var options = new ChromeOptions();
         options.setHeadless(false);
+        options.addArguments("--window-position=-32000, -32000");
         options.addArguments("--disable-gpu");
         options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36");
 
@@ -297,6 +299,9 @@ public class GTBooker {
         System.out.println("Hairdresser: " + appointment_hairdresser);
         System.out.println("Price: " + appointment_price + " DKK");
         System.out.println("Length: " + appointment_length + " min");
+
+        driver.manage().deleteAllCookies();
+        driver.quit();
 
     }
 
