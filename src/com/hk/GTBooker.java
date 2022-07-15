@@ -2,11 +2,11 @@ package com.hk;
 
 import com.hk.appointment.Appointment;
 import com.hk.appointment.Hairdresser;
-import org.openqa.selenium.By;
-import org.openqa.selenium.NoSuchElementException;
-import org.openqa.selenium.StaleElementReferenceException;
+import com.hk.profile.Profile;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
@@ -15,9 +15,12 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Scanner;
 
 public class GTBooker {
+
+    // TODO: FIX HEADLESS FEATURE
 
     private final ChromeDriver driver;
 
@@ -30,11 +33,15 @@ public class GTBooker {
     private final File windows_driver = new File("resources/driver/chromedriver.exe");
     private final File mac_driver = new File("resources/driver/chromedriver");
 
+    private Profile profile;
+
     private String appointment_hairdresser;
     private String appointment_day;
     private String appointment_time;
     private String appointment_length;
     private String appointment_price;
+
+    private boolean has_selected_profile;
 
     public GTBooker() {
         this.logger = LoggerFactory.getLogger(GTBooker.class);
@@ -57,10 +64,32 @@ public class GTBooker {
 
         logger.info("Initializing arguments for the driver...");
         var options = new ChromeOptions();
-        options.setHeadless(false);
+        options.setHeadless(true);
+        options.addArguments("--disable-gpu");
+        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36");
+        options.addArguments("--start-maximized");
 
         logger.info("Initializing driver for " + os + ".");
         this.driver = new ChromeDriver(options);
+
+        logger.info("SELECT A PROFILE OR TYPE n, no, no thanks or skip to enter details manually! Available profiles:");
+        Arrays.stream(Profile.values()).forEach(System.out::println);
+
+        while (!has_selected_profile) {
+            var input = scanner.nextLine();
+            if (input == null) {
+                logger.error("ERROR! You must select a profile or type n, no, no thanks or skip to enter details manually.");
+                continue;
+            }
+
+            switch (input.toLowerCase()) {
+                case "no", "n", "skip", "no thanks" -> has_selected_profile = true;
+            }
+
+            this.profile = Profile.getProfile(logger, input);
+            has_selected_profile = true;
+
+        }
 
     }
 
@@ -97,7 +126,7 @@ public class GTBooker {
 
             if (selected_hairdresser != null) {
                 appointment_hairdresser = selected_hairdresser.name();
-                selected_hairdresser.element().click();
+                performAction(selected_hairdresser.element()).click().build().perform();
             }
 
         }
@@ -105,22 +134,25 @@ public class GTBooker {
     }
 
     public void selectServiceAndConfirm() {
-        var wait_for_service = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[3]/div/div[1]/div[2]/div/div[1]/div/div[1]/span")));
-        wait_for_service.click();
+        var wait_for_service = waitForClickableElement("Waiting for service selection...", "//*[@id=\"booking_form\"]/div[2]/div[3]/div/div[1]/div[2]/div/div[1]/div/div[1]/span");
+        performAction(wait_for_service).click().build().perform();
 
-        var wait_for_confirmation = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"goFurtherServiceBtn\"]/a")));
-        wait_for_confirmation.click();
+        var wait_for_confirmation = waitForClickableElement("Waiting for confirmation button...", "//*[@id=\"goFurtherServiceBtn\"]/a");
+        performAction(wait_for_confirmation).click().build().perform();
 
         logger.info("Confirming services: Hair & bread");
     }
 
     public void confirmExtraService() {
 
-        appointment_price = driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[3]/div/div[3]/div/div[2]/span/currency")).getText();
-        appointment_length = driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[4]/div/div[3]/div/div[2]/minute")).getText();
+        var price = waitForVisibleElement("Appointment price", "//*[@id=\"booking_form\"]/div[2]/div[3]/div/div[3]/div/div[2]/span/currency");
+        appointment_price = price.getText();
 
-        var wait_for_confirmation = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[4]/div/div[2]/a")));
-        wait_for_confirmation.click();
+        var length = waitForVisibleElement("Appointment length", "//*[@id=\"booking_form\"]/div[2]/div[4]/div/div[3]/div/div[2]/minute");
+        appointment_length = length.getText();
+
+        var wait_for_confirmation = waitForClickableElement("Waiting for confirmation button...", "//*[@id=\"booking_form\"]/div[2]/div[4]/div/div[2]/a");
+        performAction(wait_for_confirmation).click().build().perform();
 
         logger.info("Confirming services: No additional service");
     }
@@ -146,7 +178,7 @@ public class GTBooker {
 
     public void findAppointments() {
         for (Appointment appointment : appointments) {
-            driver.findElement(By.xpath(appointment.getDay_xpath())).click();
+            performAction(driver.findElement(By.xpath(appointment.getDay_xpath()))).click().build().perform();
             //var table_element = driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[5]/div/div/div[2]/div[2]"));
             //var wait_for_table = new WebDriverWait(driver, Duration.ofMillis(10_000)).until(ExpectedConditions.visibilityOf(table_element));
             waitForPage("Loading available appointments for " + appointment.getDay() + " " + appointment.getMonth() + "...", 3000);
@@ -177,7 +209,7 @@ public class GTBooker {
             selected_day = Appointment.findAppointmentDay(logger, input, appointments);
             if (selected_day != null) {
                 appointment_day = selected_day.getDay() + " " + selected_day.getMonth();
-                driver.findElement(By.xpath(selected_day.getDay_xpath())).click();
+                performAction(driver.findElement(By.xpath(selected_day.getDay_xpath()))).click().build().perform();
             }
         }
 
@@ -200,7 +232,7 @@ public class GTBooker {
             if (selected_appointment != null) {
                 var selected_time = driver.findElement(By.xpath(selected_day.getDay_xpath())).findElement(By.xpath(selected_appointment));
                 appointment_time = selected_time.getText();
-                selected_time.click();
+                performAction(selected_time).click().build().perform();
             }
         }
 
@@ -208,51 +240,79 @@ public class GTBooker {
 
     public void enterPhoneNumber() {
 
-        logger.info("ENTER A PHONE NUMBER:");
+        var phone_field = driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[6]/div/div[2]/div[1]/div/div/input"));
+        var wait_for_button = waitForClickableElement("Waiting for button...", "//*[@id=\"booking_form\"]/div[2]/div[6]/div/div[2]/div[2]/div/a");
 
-        String phone_number = null;
-        while (phone_number == null) {
-            var input = scanner.nextLine();
-            if (input == null) {
-                logger.error("ERROR! Input must be a 8 digit danish phone number.");
-                continue;
-            }
-            if (input.length() != 8) {
-                logger.error("ERROR! Phone number must be 8 digit.");
-                continue;
-            }
-            phone_number = input;
+        if (profile != null && has_selected_profile) {
+            logger.info("Entering phone number for profile: " + profile);
+            phone_field.sendKeys(profile.getPhone_number());
         }
-        driver.findElement(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[6]/div/div[2]/div[1]/div/div/input")).sendKeys(phone_number);
-        var wait_for_button = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[6]/div/div[2]/div[2]/div/a")));
-        wait_for_button.click();
+
+        if (profile == null && has_selected_profile) {
+            logger.info("ENTER A PHONE NUMBER:");
+            String phone_number = null;
+            while (phone_number == null) {
+                var input = scanner.nextLine();
+                if (input == null) {
+                    logger.error("ERROR! Input must be a 8 digit danish phone number.");
+                    continue;
+                }
+                if (input.length() != 8) {
+                    logger.error("ERROR! Phone number must be 8 digit.");
+                    continue;
+                }
+                phone_number = input;
+            }
+            phone_field.sendKeys(phone_number);
+        }
+
+        performAction(wait_for_button).click().build().perform();
 
         logger.info("Confirming reservation...");
 
     }
 
     public void acceptTOS() {
-        var wait_for_tos = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.className("acceptConditions")));
-        wait_for_tos.click();
 
-        var wait_for_button = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[6]/div/div[4]/div[8]/div[1]/a")));
-        wait_for_button.click();
+        var wait_for_tos = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.className("acceptConditions")));
+        performAction(wait_for_tos).click().build().perform();
+
+        var wait_for_button = waitForClickableElement("Waiting for confirmation button...", "//*[@id=\"booking_form\"]/div[2]/div[6]/div/div[4]/div[8]/div[1]/a");
+        performAction(wait_for_button).click().build().perform();
     }
 
     public void acceptMarketingAndFinish() {
 
-        var wait_for_marketing = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"marketingaccept\"]/div/div/div/div/div[1]/a")));
-        wait_for_marketing.click();
+        var wait_for_marketing = waitForClickableElement("Waiting for marketing button...", "//*[@id=\"marketingaccept\"]/div/div/div/div/div[1]/a");
+        performAction(wait_for_marketing).click().build().perform();
+
+        try {
+            var wait_for_finish = waitForClickableElement("Waiting for finish button...", "//*[@id=\"booking_form\"]/div[2]/div[7]/div/div[8]/button");
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", wait_for_finish);
+        } catch (WebDriverException ignored) {
+
+        }
 
         System.out.println("Booking successful! You will receive an e-mail and SMS as confirmation for this appointment.");
         System.out.println("Date: " + appointment_day + ", " + appointment_time);
         System.out.println("Hairdresser: " + appointment_hairdresser);
         System.out.println("Price: " + appointment_price + " DKK");
-        System.out.println("Length: " + appointment_length);
+        System.out.println("Length: " + appointment_length + " min");
 
-        var wait_for_finish = new WebDriverWait(driver, Duration.ofMillis(10000)).until(ExpectedConditions.elementToBeClickable(By.xpath("//*[@id=\"booking_form\"]/div[2]/div[7]/div/div[8]/button/span")));
-        wait_for_finish.click();
+    }
 
+    private WebElement waitForVisibleElement(String element_description, String xpath) {
+        logger.info(element_description);
+        return new WebDriverWait(driver, Duration.ofMillis(10_000)).until(ExpectedConditions.visibilityOf(driver.findElement(By.xpath(xpath))));
+    }
+
+    private WebElement waitForClickableElement(String element_description, String xpath) {
+        logger.info(element_description);
+        return new WebDriverWait(driver, Duration.ofMillis(10_000)).until(ExpectedConditions.elementToBeClickable(By.xpath(xpath)));
+    }
+
+    private Actions performAction(WebElement element) {
+        return new Actions(driver).moveToElement(element);
     }
 
     private void waitForPage(String reason, long milliseconds) {
